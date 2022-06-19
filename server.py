@@ -1,9 +1,11 @@
 import socket
 import struct
-import sys
 import syslog
 import os
 import signal
+import sys
+
+# Open syslog - only in Linux
 
 syslog.openlog()
 
@@ -37,30 +39,34 @@ sys.stderr = f
 
 
 # DEFINING CONSTANTS
-PORT = 8080
+PORT_MC = 8080  # port for multicast UDP server
 bufferSize = 1024
-multicast = '224.3.29.71'
-mc_group = (multicast, PORT)
+multicast = '224.0.0.1'
+mc_group = (multicast, PORT_MC)
 
 
 # CREATING SOCKET AND SETTING OPTIONS
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-sock.bind(('', PORT))
-ttl = struct.pack('b', 1)
-sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
-syslog.syslog("UDP server up and listening")
+if len(sys.argv) > 1:
+    # optional argument indicating which interface bind the socket on
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, sys.argv[1].encode())
+sock.bind((multicast, PORT_MC))
 
 # JOIN THE MULTICAST GROUP
-group = socket.inet_aton(multicast)
-mreq = struct.pack('4sL', group, socket.INADDR_ANY)
+mreq = struct.pack('4sl', socket.inet_aton(multicast), socket.INADDR_ANY)
 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
+syslog.syslog("UDP multicast server up and listening")
 
 while True:
     # Get the first user
+    # Send "0" - open a TCP socket and listen for incoming connections
     data1, address1 = sock.recvfrom(bufferSize)
     sock.sendto("0".encode(), address1)
+
     # Get the second user
+    # Send "1" + IP ADD - connect with a TCP socket with IP ADDRESS
     data2, address2 = sock.recvfrom(bufferSize)
     sock.sendto(f"1,{address1[0]}".encode(), address2)
 

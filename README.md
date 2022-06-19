@@ -17,7 +17,7 @@ requests on port 8080. Information and errors are sent to
 syslog.
 
 ### Server
-python3 server.py
+python3 server.py [interface]
 
 ### Client
-python3 client.py
+python3 client.py [interface]
